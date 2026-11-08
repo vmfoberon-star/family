@@ -99,6 +99,7 @@ background:radial-gradient(120% 85% at 50% 28%,var(--sp-hi) 0%,var(--sp-bg) 72%)
 .khead p{color:var(--muted);margin:0 0 16px}
 .kbtn{all:unset;cursor:pointer;background:var(--accent);color:var(--accent-ink);font-weight:600;border-radius:8px;padding:11px 18px;margin:0 0 6px}
 .kyr h3{font:600 30px/1 var(--display);color:var(--accent);margin:30px 0 4px}.kyr h3 span{font:500 16px var(--body);color:var(--muted);margin-left:10px}
+.kev{margin-top:16px}.kev h4{font:600 20px/1.2 var(--display);margin:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}.kev h4 small{font:400 14px var(--body);color:var(--muted)}.kev .fam{font:500 12px var(--body);letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:1px 9px}
 .kgal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:10px}
 .kgal button{all:unset;cursor:zoom-in;display:block}
 .kgal img,.kgal .ph0{width:100%;aspect-ratio:1;object-fit:cover;border-radius:6px;background:var(--line);display:block}
@@ -291,15 +292,26 @@ function initKids(app){
     const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},await ck(),buf.slice(12));return URL.createObjectURL(new Blob([pt],{type:'image/webp'}))})();cache.set(name,p);return p}
   const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){io.unobserve(e.target);url(e.target.dataset.e).then(u=>{e.target.src=u})}}),{rootMargin:'400px'});
   const M=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  const MN=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
   const fmtD=d=>{const [y,m,dd]=d.split('-').map(Number);return dd+' '+M[m-1]+' '+y};
   const plY=n=>n%10==1&&n%100!=11?'год':(n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?'года':'лет');
   function age(born,d){const b=new Date(born+'T12:00'),x=new Date(d+'T12:00');let mo=(x.getFullYear()-b.getFullYear())*12+x.getMonth()-b.getMonth();if(x.getDate()<b.getDate())mo--;
     if(mo<0)return 'ещё до рождения';if(mo<1)return 'первые дни';if(mo<12)return mo+' мес.';const y=Math.floor(mo/12),r=mo%12;return y+' '+plY(y)+(r&&y<6?' '+r+' мес.':'')}
   const today=new Date().toISOString().slice(0,10);
   const list=document.getElementById('kidsList'),page=document.getElementById('kidPage');
+  // each grandchild's page = own photos (if any) + timeline events where they appear (own and shared family events)
+  (function(){const T=KD.tl||[],NM=Object.fromEntries(KD.kids.map(k=>[k.id,k.name]));
+    KD.kids.forEach(k=>{const G=[],re=new RegExp('^'+k.name.slice(0,-1)+'\\S*\\s*[-–,]?\\s*','i');
+      const bm={};k.photos.forEach(p=>{const m=p[2].slice(0,7);(bm[m]=bm[m]||{d:p[2],t:'',fam:0,who:[],ph:[]}).ph.push(p)});G.push(...Object.values(bm));
+      T.forEach(e=>{if(!e.who.includes(k.id))return;
+        e.v.forEach(v=>{if(!k.videos.some(x=>x[0]===v[0]))k.videos.push(v)});
+        if(!e.ph.length||(e.kind==='kid'&&k.photos.length))return;
+        let t=e.kind==='kid'?e.t.split(' · ').map(x=>x.replace(re,'')).filter(Boolean).join(' · '):e.t;t=t&&t[0].toUpperCase()+t.slice(1);
+        G.push({d:e.ph[0][2],t,fam:e.kind==='family',who:e.who.filter(w=>w!==k.id&&NM[w]).map(w=>NM[w]),ph:e.ph})});
+      G.sort((a,b)=>a.d<b.d?-1:1);k.videos.sort((a,b)=>a[2]<b[2]?-1:1);k.groups=G;k.all=G.flatMap(g=>g.ph)})})();
   KD.kids.forEach(k=>{const b=document.createElement('a');b.className='kid';b.href='#kid-'+k.id;const ph=document.createElement('div');ph.className='ph';
-    const last=k.photos[k.photos.length-1];if(last){const im=document.createElement('img');im.alt='';im.dataset.e=last[0];io.observe(im);ph.append(im)}else ph.textContent=k.name[0];
-    b.append(ph);const nm=document.createElement('b');nm.textContent=k.name;const sm=document.createElement('small');sm.textContent=age(k.born,today)+(k.photos.length||k.videos.length?'':' · страница готовится');b.append(nm,sm);list.append(b)});
+    const last=k.all[k.all.length-1];if(last){const im=document.createElement('img');im.alt='';im.dataset.e=last[0];io.observe(im);ph.append(im)}else ph.textContent=k.name[0];
+    b.append(ph);const nm=document.createElement('b');nm.textContent=k.name;const sm=document.createElement('small');sm.textContent=age(k.born,today)+(k.all.length||k.videos.length?' · '+k.all.length+' фото'+(k.videos.length?', '+k.videos.length+' видео':''):' · страница готовится');b.append(nm,sm);list.append(b)});
   let LB=[],li=0,K0=null,sT=null;const lbE=document.getElementById('klb');
   function lb(arr,i,kid){if(arr){LB=arr;K0=kid}li=(i+LB.length)%LB.length;const p=LB[li];const im=document.getElementById('klbI');im.removeAttribute('src');url(p[1]).then(u=>{if(LB[li]===p)im.src=u});
     document.getElementById('klbC').textContent=fmtD(p[2])+' · '+(K0.cap||age(K0.born,p[2]));document.getElementById('klbN').textContent=(li+1)+' / '+LB.length;
@@ -377,14 +389,17 @@ function initKids(app){
   window.__kid=id=>{const k=KD.kids.find(x=>x.id===id);list.hidden=!!k;document.querySelector('#grandkids>.lead').hidden=!!k;document.querySelector('#grandkids>h2').hidden=!!k;page.textContent='';if(!k)return;
     const h=document.createElement('div');h.className='khead';
     h.innerHTML=`<a class="kback" href="#grandkids">← Все внуки</a><h2>${esc(k.name)}</h2><p>Дата рождения: ${fmtD(k.born)} · сейчас ${age(k.born,today)}${k.parents?' · мама и папа: '+esc(k.parents):''}</p>`;
-    if(k.photos.length){const sb=document.createElement('button');sb.className='kbtn';sb.type='button';sb.textContent='▶ Слайд-шоу: все фото по порядку';sb.onclick=()=>{lb(k.photos,0,k);lbE.querySelector('.pl').click()};h.append(sb)}
+    if(k.all.length){const sb=document.createElement('button');sb.className='kbtn';sb.type='button';sb.textContent='▶ Слайд-шоу: все '+k.all.length+' фото по порядку';sb.onclick=()=>{lb(k.all,0,k);lbE.querySelector('.pl').click()};h.append(sb)}
     page.append(h);
-    if(!k.photos.length&&!k.videos.length){const e=document.createElement('div');e.className='kempty';e.textContent='Страница готовится: скоро здесь появятся фото и видео по годам.';page.append(e);return}
-    const by=new Date(k.born).getFullYear(),years=new Set([...k.photos.map(p=>+p[2].slice(0,4)),...k.videos.map(v=>+v[2].slice(0,4))]);
+    if(!k.all.length&&!k.videos.length){const e=document.createElement('div');e.className='kempty';e.textContent='Страница готовится: скоро здесь появятся фото и видео по годам.';page.append(e);return}
+    const by=new Date(k.born).getFullYear(),years=new Set([...k.groups.map(g=>+g.d.slice(0,4)),...k.videos.map(v=>+v[2].slice(0,4))]);
     [...years].sort((a,b)=>a-b).forEach(y=>{const sec=document.createElement('section');sec.className='kyr';const a=y-by;
       sec.innerHTML=`<h3>${y}<span>${a<=0?'первый год':a+' '+plY(a)}</span></h3>`;
-      const ps=k.photos.filter(p=>p[2].startsWith(y+''));if(ps.length){const g=document.createElement('div');g.className='kgal';
-        ps.forEach(p=>{const b=document.createElement('button');b.type='button';const im=document.createElement('img');im.alt=fmtD(p[2]);im.dataset.e=p[0];io.observe(im);b.append(im);b.onclick=()=>lb(k.photos,k.photos.indexOf(p),k);g.append(b)});sec.append(g)}
+      k.groups.filter(g=>g.d.startsWith(y+'')).forEach(gr=>{const ev=document.createElement('div');ev.className='kev';const mo=MN[+gr.d.slice(5,7)-1];
+        const tt=gr.t&&gr.t.toLowerCase()!==mo.toLowerCase()?gr.t:'',ow=gr.who.filter(n=>!tt.includes(n.slice(0,-1)));
+        ev.innerHTML=`<h4>${mo}${tt?' · '+esc(tt):''}${gr.fam?`<span class="fam">вся семья</span>`:''}${ow.length?`<small>а также ${esc(ow.join(', ').replace(/, ([^,]*)$/,' и $1'))}</small>`:''}</h4>`;
+        const g=document.createElement('div');g.className='kgal';
+        gr.ph.forEach(p=>{const b=document.createElement('button');b.type='button';const im=document.createElement('img');im.alt=fmtD(p[2]);im.dataset.e=p[0];io.observe(im);b.append(im);b.onclick=()=>lb(k.all,k.all.indexOf(p),k);g.append(b)});ev.append(g);sec.append(ev)});
       const vs=k.videos.filter(v=>v[2].startsWith(y+''));if(vs.length){const g=document.createElement('div');g.className='grid kvids';
         vs.forEach(([v,t,d])=>{const b=document.createElement('button');b.className='vid';b.type='button';b.dataset.v=v;b.innerHTML=`<img loading="lazy" alt="" src="https://i.ytimg.com/vi/${v}/mqdefault.jpg"><span class="vt">${esc(t)}</span><span class="vn">${fmtD(d)} · ${age(k.born,d)}</span>`;g.append(b)});sec.append(g)}
       page.append(sec)});window.scrollTo(0,0)};
